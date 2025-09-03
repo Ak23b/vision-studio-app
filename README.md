@@ -1,6 +1,6 @@
 # Vision Studio 🎥🖼️
 
-A modern GUI-based Computer Vision toolkit built with **Python**, **Tkinter**, **NumPy**, and **OpenCV**.  
+A modern GUI-based Computer Vision toolkit built with **Python**, **Tkinter**, **NumPy**.  
 Vision Studio provides an easy-to-use interface for applying image filters, editing images, and experimenting with live webcam effects — all in one app.
 
 ---
