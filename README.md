@@ -27,7 +27,6 @@ Vision Studio provides an easy-to-use interface for applying image filters, edit
 ## Installation
  1. Requirements:
     - Python 3.x
-    - OpenCV
     - NumPy
     - Tkinter (usually included with Python installations)
  2. Run 'install -r requirements.txt' to install dependencies.
