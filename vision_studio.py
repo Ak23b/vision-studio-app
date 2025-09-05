@@ -1,184 +1,218 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import cv2
-from PIL import Image, ImageTk, ImageEnhance
+from PIL import Image, ImageTk
 import numpy as np
 
-class VisionStudio:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Vision Studio")
-        self.root.geometry("900x600")
+# Global variables
+img = None          # stores full-resolution image
+display_img = None  # stores the resized image for display
+img_tk = None       # stores Tkinter image reference
 
-        # Notebook (tabs)
-        self.notebook = ttk.Notebook(root)
-        self.notebook.pack(fill="both", expand=True)
+# Button colors
+FILTER_BTN_COLOR = "#ADD8E6"   # light blue
+EDITOR_BTN_COLOR = "#FFB6C1"   # pink
+WEBCAM_BTN_COLOR = "#FFA500"   # orange
 
-        # Tabs
-        self.filters_tab = ttk.Frame(self.notebook)
-        self.editor_tab = ttk.Frame(self.notebook)
-        self.webcam_tab = ttk.Frame(self.notebook)
 
-        self.notebook.add(self.filters_tab, text="Filters")
-        self.notebook.add(self.editor_tab, text="Editor")
-        self.notebook.add(self.webcam_tab, text="Webcam")
+# ---------- Utility: Resize + Display image ----------
+def resize_for_display(image, max_w=600, max_h=400):
+    """Resize image to fit into max_w x max_h while keeping aspect ratio."""
+    h, w = image.shape[:2]
+    scale = min(max_w / w, max_h / h, 1)  # scale down, but don't enlarge
+    new_w, new_h = int(w * scale), int(h * scale)
+    return cv2.resize(image, (new_w, new_h))
 
-        # Variables
-        self.image = None
-        self.tk_image = None
-        self.webcam_running = False
 
-        # Build Tabs
-        self.build_filters_tab()
-        self.build_editor_tab()
-        self.build_webcam_tab()
+def display_image(tab_frame):
+    global img, display_img, img_tk
+    if img is None:
+        return
 
-    def build_filters_tab(self):
-        btn_frame = tk.Frame(self.filters_tab)
-        btn_frame.pack(side="left", fill="y", padx=10, pady=10)
+    display_img = resize_for_display(img)
+    img_tk = ImageTk.PhotoImage(Image.fromarray(display_img))
 
-        tk.Button(btn_frame, text="Load Image", command=self.load_image, bg="#ADD8E6").pack(fill="x", pady=5)
-        tk.Button(btn_frame, text="Grayscale", command=self.apply_grayscale, bg="#ADD8E6").pack(fill="x", pady=5)
-        tk.Button(btn_frame, text="Blur", command=self.apply_blur, bg="#ADD8E6").pack(fill="x", pady=5)
-        tk.Button(btn_frame, text="Sharpen", command=self.apply_sharpen, bg="#ADD8E6").pack(fill="x", pady=5)
-        tk.Button(btn_frame, text="Edge Detection", command=self.apply_edge, bg="#ADD8E6").pack(fill="x", pady=5)
+    if not hasattr(tab_frame, "label"):
+        tab_frame.label = tk.Label(tab_frame)
+        tab_frame.label.pack()
 
-        self.filter_canvas = tk.Label(self.filters_tab)
-        self.filter_canvas.pack(side="right", expand=True)
+    tab_frame.label.config(image=img_tk)
+    tab_frame.label.image = img_tk
 
-    def build_editor_tab(self):
-        btn_frame = tk.Frame(self.editor_tab)
-        btn_frame.pack(side="left", fill="y", padx=10, pady=10)
 
-        tk.Button(btn_frame, text="Load Image", command=self.load_image, bg="pink").pack(fill="x", pady=5)
-        tk.Button(btn_frame, text="Brightness +", command=lambda: self.adjust_brightness(1.2), bg="pink").pack(fill="x", pady=5)
-        tk.Button(btn_frame, text="Brightness -", command=lambda: self.adjust_brightness(0.8), bg="pink").pack(fill="x", pady=5)
-        tk.Button(btn_frame, text="Contrast +", command=lambda: self.adjust_contrast(1.2), bg="pink").pack(fill="x", pady=5)
-        tk.Button(btn_frame, text="Contrast -", command=lambda: self.adjust_contrast(0.8), bg="pink").pack(fill="x", pady=5)
-        tk.Button(btn_frame, text="Rotate", command=self.rotate_image, bg="pink").pack(fill="x", pady=5)
-        tk.Button(btn_frame, text="Resize 50%", command=self.resize_half, bg="pink").pack(fill="x", pady=5)
+# ---------- File operations ----------
+def open_image(tab_frame):
+    global img
+    file_path = filedialog.askopenfilename(filetypes=[("Image Files", "*.jpg *.png *.jpeg")])
+    if not file_path:
+        return
+    img = cv2.cvtColor(cv2.imread(file_path), cv2.COLOR_BGR2RGB)
+    display_image(tab_frame)
 
-        self.editor_canvas = tk.Label(self.editor_tab)
-        self.editor_canvas.pack(side="right", expand=True)
 
-    def build_webcam_tab(self):
-        btn_frame = tk.Frame(self.webcam_tab)
-        btn_frame.pack(side="left", fill="y", padx=10, pady=10)
+def save_image():
+    global img
+    if img is None:
+        messagebox.showerror("Error", "No image to save.")
+        return
 
-        tk.Button(btn_frame, text="Start Webcam", command=self.start_webcam, bg="orange").pack(fill="x", pady=5)
-        tk.Button(btn_frame, text="Stop Webcam", command=self.stop_webcam, bg="orange").pack(fill="x", pady=5)
+    filepath = filedialog.asksaveasfilename(
+        defaultextension=".png",
+        filetypes=[("PNG files", "*.png"), ("JPEG files", "*.jpg"), ("All files", "*.*")]
+    )
+    if not filepath:
+        return
 
-        self.webcam_canvas = tk.Label(self.webcam_tab)
-        self.webcam_canvas.pack(side="right", expand=True)
+    save_img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    cv2.imwrite(filepath, save_img)
+    messagebox.showinfo("Saved", f"Image saved at:\n{filepath}")
 
-    # Image loading
-    def load_image(self):
-        file_path = filedialog.askopenfilename(filetypes=[("Image Files", "*.jpg;*.png;*.jpeg")])
-        if not file_path:
-            return
-        self.image = cv2.imread(file_path)
-        self.display_image(self.image)
 
-    def display_image(self, img):
-        if img is None:
-            return
-        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        img_pil = Image.fromarray(img_rgb)
-        self.tk_image = ImageTk.PhotoImage(img_pil)
+# ---------- Filters ----------
+def apply_grayscale(tab_frame):
+    global img
+    if img is None: return
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+    display_image(tab_frame)
 
-        if self.notebook.index(self.notebook.select()) == 0:
-            self.filter_canvas.config(image=self.tk_image)
-        else:
-            self.editor_canvas.config(image=self.tk_image)
 
-    # Filters
-    def apply_grayscale(self):
-        if self.image is None:
-            return
-        gray = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
-        gray = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
-        self.display_image(gray)
+def apply_blur(tab_frame):
+    global img
+    if img is None: return
+    img = cv2.GaussianBlur(img, (7, 7), 0)
+    display_image(tab_frame)
 
-    def apply_blur(self):
-        if self.image is None:
-            return
-        blur = cv2.GaussianBlur(self.image, (15, 15), 0)
-        self.display_image(blur)
 
-    def apply_sharpen(self):
-        if self.image is None:
-            return
-        kernel = np.array([[0, -1, 0],
-                           [-1, 5, -1],
-                           [0, -1, 0]])
-        sharp = cv2.filter2D(self.image, -1, kernel)
-        self.display_image(sharp)
+def apply_sharpen(tab_frame):
+    global img
+    if img is None: return
+    kernel = np.array([[0, -1, 0],
+                       [-1, 5, -1],
+                       [0, -1, 0]])
+    img = cv2.filter2D(img, -1, kernel)
+    display_image(tab_frame)
 
-    def apply_edge(self):
-        if self.image is None:
-            return
-        edges = cv2.Canny(self.image, 100, 200)
-        edges = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
-        self.display_image(edges)
 
-    # Editor functions
-    def adjust_brightness(self, factor):
-        if self.image is None:
-            return
-        pil_img = Image.fromarray(cv2.cvtColor(self.image, cv2.COLOR_BGR2RGB))
-        enhancer = ImageEnhance.Brightness(pil_img)
-        img_enhanced = enhancer.enhance(factor)
-        self.image = cv2.cvtColor(np.array(img_enhanced), cv2.COLOR_RGB2BGR)
-        self.display_image(self.image)
+def apply_edge(tab_frame):
+    global img
+    if img is None: return
+    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    edges = cv2.Canny(gray, 100, 200)
+    img = cv2.cvtColor(edges, cv2.COLOR_GRAY2RGB)
+    display_image(tab_frame)
 
-    def adjust_contrast(self, factor):
-        if self.image is None:
-            return
-        pil_img = Image.fromarray(cv2.cvtColor(self.image, cv2.COLOR_BGR2RGB))
-        enhancer = ImageEnhance.Contrast(pil_img)
-        img_enhanced = enhancer.enhance(factor)
-        self.image = cv2.cvtColor(np.array(img_enhanced), cv2.COLOR_RGB2BGR)
-        self.display_image(self.image)
 
-    def rotate_image(self):
-        if self.image is None:
-            return
-        self.image = cv2.rotate(self.image, cv2.ROTATE_90_CLOCKWISE)
-        self.display_image(self.image)
+# ---------- Editor ----------
+def adjust_brightness(tab_frame):
+    global img
+    if img is None: return
+    img = cv2.convertScaleAbs(img, alpha=1, beta=50)
+    display_image(tab_frame)
 
-    def resize_half(self):
-        if self.image is None:
-            return
-        h, w = self.image.shape[:2]
-        self.image = cv2.resize(self.image, (w // 2, h // 2))
-        self.display_image(self.image)
 
-    # Webcam
-    def start_webcam(self):
-        if self.webcam_running:
-            return
-        self.webcam_running = True
-        self.capture = cv2.VideoCapture(0)
-        self.update_webcam()
+def adjust_contrast(tab_frame):
+    global img
+    if img is None: return
+    img = cv2.convertScaleAbs(img, alpha=1.5, beta=0)
+    display_image(tab_frame)
 
-    def update_webcam(self):
-        if not self.webcam_running:
-            return
-        ret, frame = self.capture.read()
+
+def rotate_image(tab_frame):
+    global img
+    if img is None: return
+    h, w = img.shape[:2]
+    M = cv2.getRotationMatrix2D((w//2, h//2), 90, 1)
+    img = cv2.warpAffine(img, M, (w, h))
+    display_image(tab_frame)
+
+
+def resize_image(tab_frame):
+    global img
+    if img is None: return
+    h, w = img.shape[:2]
+    img = cv2.resize(img, (w//2, h//2))
+    display_image(tab_frame)
+
+
+# ---------- Webcam ----------
+def start_webcam(tab_frame):
+    cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        messagebox.showerror("Error", "Could not open webcam")
+        return
+
+    def show_frame():
+        ret, frame = cap.read()
         if ret:
-            img_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            img_pil = Image.fromarray(img_rgb)
-            self.tk_image = ImageTk.PhotoImage(img_pil)
-            self.webcam_canvas.config(image=self.tk_image)
-        self.root.after(30, self.update_webcam)
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            resized = resize_for_display(frame_rgb)
+            frame_tk = ImageTk.PhotoImage(Image.fromarray(resized))
+            tab_frame.label.imgtk = frame_tk
+            tab_frame.label.config(image=frame_tk)
+            tab_frame.label.after(10, show_frame)
+        else:
+            cap.release()
 
-    def stop_webcam(self):
-        self.webcam_running = False
-        if hasattr(self, 'capture'):
-            self.capture.release()
-            self.webcam_canvas.config(image="")
+    if not hasattr(tab_frame, "label"):
+        tab_frame.label = tk.Label(tab_frame)
+        tab_frame.label.pack()
+
+    show_frame()
+
+
+# ---------- Main App ----------
+def main():
+    root = tk.Tk()
+    root.title("Vision Studio")
+    root.geometry("900x600")
+
+    notebook = ttk.Notebook(root)
+    notebook.pack(fill="both", expand=True)
+
+    # Tabs
+    filters_tab = ttk.Frame(notebook)
+    editor_tab = ttk.Frame(notebook)
+    webcam_tab = ttk.Frame(notebook)
+
+    notebook.add(filters_tab, text="Filters")
+    notebook.add(editor_tab, text="Editor")
+    notebook.add(webcam_tab, text="Webcam")
+
+    # Filters Tab
+    tk.Button(filters_tab, text="Open Image", bg=FILTER_BTN_COLOR,
+              command=lambda: open_image(filters_tab)).pack(pady=5)
+    tk.Button(filters_tab, text="Grayscale", bg=FILTER_BTN_COLOR,
+              command=lambda: apply_grayscale(filters_tab)).pack(pady=5)
+    tk.Button(filters_tab, text="Blur", bg=FILTER_BTN_COLOR,
+              command=lambda: apply_blur(filters_tab)).pack(pady=5)
+    tk.Button(filters_tab, text="Sharpen", bg=FILTER_BTN_COLOR,
+              command=lambda: apply_sharpen(filters_tab)).pack(pady=5)
+    tk.Button(filters_tab, text="Edge Detection", bg=FILTER_BTN_COLOR,
+              command=lambda: apply_edge(filters_tab)).pack(pady=5)
+    tk.Button(filters_tab, text="Save Image", bg=FILTER_BTN_COLOR,
+              command=save_image).pack(pady=5)
+
+    # Editor Tab
+    tk.Button(editor_tab, text="Open Image", bg=EDITOR_BTN_COLOR,
+              command=lambda: open_image(editor_tab)).pack(pady=5)
+    tk.Button(editor_tab, text="Brightness", bg=EDITOR_BTN_COLOR,
+              command=lambda: adjust_brightness(editor_tab)).pack(pady=5)
+    tk.Button(editor_tab, text="Contrast", bg=EDITOR_BTN_COLOR,
+              command=lambda: adjust_contrast(editor_tab)).pack(pady=5)
+    tk.Button(editor_tab, text="Rotate", bg=EDITOR_BTN_COLOR,
+              command=lambda: rotate_image(editor_tab)).pack(pady=5)
+    tk.Button(editor_tab, text="Resize", bg=EDITOR_BTN_COLOR,
+              command=lambda: resize_image(editor_tab)).pack(pady=5)
+    tk.Button(editor_tab, text="Save Image", bg=EDITOR_BTN_COLOR,
+              command=save_image).pack(pady=5)
+
+    # Webcam Tab
+    tk.Button(webcam_tab, text="Start Webcam", bg=WEBCAM_BTN_COLOR,
+              command=lambda: start_webcam(webcam_tab)).pack(pady=5)
+
+    root.mainloop()
+
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = VisionStudio(root)
-    root.mainloop()
+    main()
