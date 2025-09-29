@@ -167,17 +167,21 @@ def main():
     root.title("Vision Studio")
     root.geometry("900x600")
 
+
     notebook = ttk.Notebook(root)
     notebook.pack(fill="both", expand=True)
+
 
     # Tabs
     filters_tab = ttk.Frame(notebook)
     editor_tab = ttk.Frame(notebook)
     webcam_tab = ttk.Frame(notebook)
 
+
     notebook.add(filters_tab, text="Filters")
     notebook.add(editor_tab, text="Editor")
     notebook.add(webcam_tab, text="Webcam")
+
 
     # Filters Tab
     tk.Button(filters_tab, text="Open Image", bg=FILTER_BTN_COLOR,
@@ -193,6 +197,7 @@ def main():
     tk.Button(filters_tab, text="Save Image", bg=FILTER_BTN_COLOR,
               command=save_image).pack(pady=5)
 
+
     # Editor Tab
     tk.Button(editor_tab, text="Open Image", bg=EDITOR_BTN_COLOR,
               command=lambda: open_image(editor_tab)).pack(pady=5)
@@ -206,6 +211,7 @@ def main():
               command=lambda: resize_image(editor_tab)).pack(pady=5)
     tk.Button(editor_tab, text="Save Image", bg=EDITOR_BTN_COLOR,
               command=save_image).pack(pady=5)
+
 
     # Webcam Tab
     tk.Button(webcam_tab, text="Start Webcam", bg=WEBCAM_BTN_COLOR,
