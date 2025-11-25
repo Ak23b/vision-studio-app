@@ -110,13 +110,11 @@ def adjust_brightness(tab_frame):
     img = cv2.convertScaleAbs(img, alpha=1, beta=50)
     display_image(tab_frame)
 
-
 def adjust_contrast(tab_frame):
     global img
     if img is None: return
     img = cv2.convertScaleAbs(img, alpha=1.5, beta=0)
     display_image(tab_frame)
-
 
 def rotate_image(tab_frame):
     global img
@@ -126,14 +124,12 @@ def rotate_image(tab_frame):
     img = cv2.warpAffine(img, M, (w, h))
     display_image(tab_frame)
 
-
 def resize_image(tab_frame):
     global img
     if img is None: return
     h, w = img.shape[:2]
     img = cv2.resize(img, (w//2, h//2))
     display_image(tab_frame)
-
 
 # ---------- Webcam ----------
 def start_webcam(tab_frame):
@@ -159,7 +155,6 @@ def start_webcam(tab_frame):
         tab_frame.label.pack()
 
     show_frame()
-
 
 # ---------- Main App ----------
 def main():
